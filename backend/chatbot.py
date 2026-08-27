@@ -830,6 +830,15 @@ COMMON_TRANSLATIONS = {
 DICT_OVERRIDES = {
     "શું વાજડી": "વાજડી વડ",
     "વાજડી શું": "વાજડી વડ",
+    "વડ વજડી": "વાજડી વડ",
+    "વજડી વડ": "વાજડી વડ",
+    "વજડી વિરદા": "વાજડી વીરડા",
+    "હડમતલા": "હડમતાળા",
+    "મેંગાણી": "મેંગણી",
+    "રિબડા": "રીબડા",
+    "ખંડેરી": "ખંઢેરી",
+    "માપાની": "માપણી",
+    "ટીપ્પીટ": "ટીપ્પણ શીટ",
     "શું": "વડ",
     "સાંકળ": "બેડી",
     "પાઈકી": "પૈકી",
@@ -1084,13 +1093,22 @@ def translate_with_google(text: str) -> str:
     if not text or not text.strip():
         return text
 
-    clean_lower = text.strip().lower()
-    if clean_lower in COMMON_TRANSLATIONS:
-        return COMMON_TRANSLATIONS[clean_lower]
+    working = text.strip()
 
+    # 1. Pre-substitute known phrases and place names from dictionary
+    for key in _SORTED_TRANSLATION_KEYS:
+        pattern = re.compile(r"\\b" + re.escape(key) + r"\\b", re.IGNORECASE)
+        if pattern.search(working):
+            working = pattern.sub(COMMON_TRANSLATIONS[key], working)
+
+    # If no English/Latin letters remain, return directly with Gujarati digits
+    if not any(c.isalpha() and ord(c) < 128 for c in working):
+        return _to_gujarati_digits(working)
+
+    # 2. Call Google Translate API forcing sl=en&tl=gu (prevents language hallucination)
     try:
-        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=gu&dt=t&q=" + urllib.parse.quote(text.strip())
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=gu&dt=t&q=" + urllib.parse.quote(working)
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
         res = urllib.request.urlopen(req, timeout=5)
         data = json.loads(res.read().decode("utf-8"))
         translated_parts = [item[0] for item in data[0] if item and item[0]]
@@ -1102,7 +1120,7 @@ def translate_with_google(text: str) -> str:
     except Exception as e:
         print(f"Google Translate API fallback: {e}")
 
-    return transliterate_english_to_gujarati(text)
+    return transliterate_english_to_gujarati(working)
 
 def normalize_value_for_form(value: str) -> str:
     if not value:
