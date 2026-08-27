@@ -14,7 +14,14 @@ if not os.path.exists(TEMPLATE_PATH):
     if os.path.exists(replica_template):
         TEMPLATE_PATH = replica_template
 
-OUTPUT_DIR = os.path.join(BASE_DIR, "fileld_pdfs")
+if os.getenv("VERCEL"):
+    OUTPUT_DIR = "/tmp"
+else:
+    OUTPUT_DIR = os.path.join(BASE_DIR, "fileld_pdfs")
+try:
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+except Exception:
+    OUTPUT_DIR = "/tmp"
 FONTS_DIR = os.path.join(BASE_DIR, "fonts")
 DEFAULT_SIGN_PATH = os.path.join(BASE_DIR, "signatures", "sign.png")
 
