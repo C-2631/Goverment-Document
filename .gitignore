@@ -1,0 +1,26 @@
+# Python
+backend/venv/
+backend/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+*.db
+backend/chatbot_pdf.db
+backend/fileld_pdfs/*.pdf
+!backend/fileld_pdfs/.gitkeep
+backend/.env
+
+# Node / Vite / React
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db

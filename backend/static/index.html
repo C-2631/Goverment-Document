@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>પરિશિષ્ટ ૫ - ગુજરાતી ફોર્મ સહાયક</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Gujarati:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Top Premium Navigation Bar -->
+    <header class="app-header">
+        <div class="header-logo">
+            <span class="logo-icon">📄</span>
+            <div class="logo-text">
+                <h1>પરિશિષ્ટ નં.-૫</h1>
+                <p>Gujarati Form Filling Assistant</p>
+            </div>
+        </div>
+        
+        <div class="header-actions">
+            <span id="connection-status" class="status-indicator connected">
+                <span class="status-dot"></span> Active Session
+            </span>
+            <button id="btn-settings" class="icon-btn" title="Settings">⚙️ Settings</button>
+            <button id="btn-manual" class="icon-btn" title="View Form Fields">📋 Form Fields</button>
+            <button id="btn-download" class="btn-primary" disabled>⬇️ Download PDF</button>
+        </div>
+    </header>
+
+    <main class="app-container">
+        <!-- Left Panel: PDF Live Preview -->
+        <section class="preview-panel glass-card">
+            <div class="panel-header">
+                <h2>Live PDF Document Preview</h2>
+                <div class="preview-actions">
+                    <button id="btn-refresh-pdf" class="btn-secondary sm" title="Force Refresh">🔄 Refresh</button>
+                </div>
+            </div>
+            <div class="pdf-viewer-container" id="pdf-container">
+                <div class="pdf-placeholder" id="pdf-placeholder-msg">
+                    <div class="spinner"></div>
+                    <p>Generating document preview...</p>
+                </div>
+                <iframe id="pdf-frame" src="" style="display: none;"></iframe>
+            </div>
+        </section>
+
+        <!-- Right Panel: Interactive Chatbot -->
+        <section class="chat-panel glass-card">
+            <div class="panel-header">
+                <h2>ગુજરાતી ફોર્મ ચેટ સહાયક</h2>
+                <span class="bot-badge">Wizard Mode</span>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages-container">
+                <!-- Messages will be dynamically rendered here -->
+            </div>
+
+            <!-- Typing indicator -->
+            <div class="typing-indicator" id="chat-typing-indicator" style="display: none;">
+                <span></span><span></span><span></span>
+                <p>સહાયક પ્રક્રિયા કરી રહ્યો છે...</p>
+            </div>
+
+            <!-- Quick Suggestions -->
+            <div class="chat-suggestions" id="chat-suggestions">
+                <button onclick="sendSuggestion('નમસ્તે, મારે નવું ફોર્મ ભરવું છે.')">👋 નવું સત્ર શરૂ કરો</button>
+                <button onclick="sendSuggestion('મારું નામ Ramesh Patel છે')">✍️ Try English Input</button>
+                <button onclick="toggleManualDrawer()">📋 ભરેલા ફીલ્ડ જુઓ</button>
+            </div>
+
+            <!-- Input area -->
+            <form class="chat-input-area" id="chat-form">
+                <input type="text" id="chat-input" placeholder="અહીં જવાબ લખો / Type your answer here" required autocomplete="off">
+                <button type="submit" id="chat-send-btn" class="btn-primary">Send</button>
+            </form>
+        </section>
+    </main>
+
+    <!-- Slide-Out Manual Editing Drawer (Form Data) -->
+    <aside class="manual-drawer glass-card" id="manual-drawer">
+        <div class="drawer-header">
+            <h3>📋 Captured Form Fields</h3>
+            <button class="close-btn" onclick="toggleManualDrawer()">✖</button>
+        </div>
+        <div class="drawer-body">
+            <p class="drawer-desc">Review and correct fields extracted by the AI. Changes here will immediately reflect on the PDF.</p>
+            <form id="manual-form">
+                <div class="form-section">
+                    <h4>Applicant Details (અરજદારની વિગત)</h4>
+                    <div class="form-group">
+                        <label for="f-applicant_name">Name (નામ)</label>
+                        <input type="text" id="f-applicant_name" name="applicant_name">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-address">Address (સરનામું)</label>
+                        <textarea id="f-address" name="address" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="f-mobile">Mobile (મોબાઇલ)</label>
+                        <input type="text" id="f-mobile" name="mobile">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-date">Date (તારીખ)</label>
+                        <input type="text" id="f-date" name="date" placeholder="DD-MM-YYYY">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>Office Details (કચેરીની વિગત)</h4>
+                    <div class="form-group">
+                        <label for="f-to_officer">To Officer (પ્રતિશ્રી)</label>
+                        <input type="text" id="f-to_officer" name="to_officer" placeholder="મામલતદાર શ્રી">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-office_village">Office Town/City (મું.)</label>
+                        <input type="text" id="f-office_village" name="office_village">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>Land Record & Subject (જમીનની વિગત)</h4>
+                    <div class="form-group">
+                        <label for="f-subject_moje">Village (મોજે)</label>
+                        <input type="text" id="f-subject_moje" name="subject_moje">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-subject_taluko">Taluka (તાલુકો)</label>
+                        <input type="text" id="f-subject_taluko" name="subject_taluko">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-subject_jillo">District (જીલ્લો)</label>
+                        <input type="text" id="f-subject_jillo" name="subject_jillo">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-subject_survey_no">Survey No (સર્વે નં.)</label>
+                        <input type="text" id="f-subject_survey_no" name="subject_survey_no">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-copy_details">Copies Needed (નકલ વિગત)</label>
+                        <input type="text" id="f-copy_details" name="copy_details" placeholder="ટીપ્પણ / માપણી શીટ">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-copy_quantity">No. of Copies (નંગ)</label>
+                        <input type="text" id="f-copy_quantity" name="copy_quantity">
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>Office Verification (કચેરી વપરાશ/અન્ય)</h4>
+                    <div class="form-group">
+                        <label for="f-mtr_no">MTR No.</label>
+                        <input type="text" id="f-mtr_no" name="mtr_no">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-online_app_no">Online Application No.</label>
+                        <input type="text" id="f-online_app_no" name="online_app_no">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-surveyor_name">Surveyor Name (સર્વેયરનું નામ)</label>
+                        <input type="text" id="f-surveyor_name" name="surveyor_name">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-measurement_date">Measurement Date</label>
+                        <input type="text" id="f-measurement_date" name="measurement_date" placeholder="DD-MM-YYYY">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-deposit_fee">Deposit Fee (રૂા. ડીપોઝીટ)</label>
+                        <input type="text" id="f-deposit_fee" name="deposit_fee">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-behalf_name">Authorize Person (વતી શ્રી)</label>
+                        <input type="text" id="f-behalf_name" name="behalf_name">
+                    </div>
+                </div>
+                
+                <button type="button" id="btn-save-manual" class="btn-primary w-full">Save Changes & Update PDF</button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal" style="display: none;">
+        <div class="modal glass-card">
+            <div class="modal-header">
+                <h3>⚙️ Developer API Settings</h3>
+                <button class="close-btn" id="btn-close-settings">✖</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Your Form Access API Key</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="s-user-key" readonly style="flex: 1; font-family: monospace; background: rgba(0,0,0,0.2);">
+                        <button id="btn-copy-user-key" class="btn-secondary" style="padding: 0 12px;">Copy</button>
+                    </div>
+                    <p class="help-text">Use this API Key to fetch or update your form data from other databases or external applications.</p>
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>API Integration Snippet</label>
+                    <textarea id="s-api-snippet" readonly rows="4" style="font-family: monospace; font-size: 11px; background: rgba(0,0,0,0.2); resize: none;"></textarea>
+                    <p class="help-text">Example shell command to fetch your form data programmatically.</p>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <button id="btn-test-coords" class="btn-secondary w-full">📐 Open Coordinate Calibration Tool</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-close-settings-ok" class="btn-primary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coordinate Calibration Modal -->
+    <div class="modal-overlay" id="coords-modal" style="display: none;">
+        <div class="modal max-w-lg glass-card">
+            <div class="modal-header">
+                <h3>📐 Coordinate Calibration Tool</h3>
+                <button class="close-btn" id="btn-close-coords">✖</button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="help-text text-left">Click anywhere on the document template image below to instantly calculate the corresponding PDF coordinates (X, Y) for reportlab rendering.</p>
+                <div class="coords-display-box">
+                    <span>X: <strong id="coord-x">0</strong></span>
+                    <span>Y: <strong id="coord-y">0</strong></span>
+                    <button id="btn-copy-coords" class="sm btn-secondary">Copy coordinates</button>
+                </div>
+                <div class="img-calibration-container">
+                    <!-- Standard image dimension is 899 x 1599 -->
+                    <img id="calibration-img" src="/templates/DLR_parichist_5_draft.jpeg" alt="Template Page">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
