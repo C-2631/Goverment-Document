@@ -9,7 +9,10 @@ except ImportError:
     PSYCOPG2_AVAILABLE = False
 
 DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
-SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), "chatbot_pdf.db")
+if os.getenv("VERCEL"):
+    SQLITE_DB_PATH = "/tmp/chatbot_pdf.db"
+else:
+    SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), "chatbot_pdf.db")
 
 
 def is_postgres():
