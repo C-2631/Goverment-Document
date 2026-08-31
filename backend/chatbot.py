@@ -831,26 +831,23 @@ DICT_OVERRIDES = {
     "શું વાજડી": "વાજડી વડ",
     "વાજડી શું": "વાજડી વડ",
     "વડ વજડી": "વાજડી વડ",
+    "વાળ વાજડી": "વાજડી વડ",
+    "વાજડી વાળ": "વાજડી વડ",
     "વજડી વડ": "વાજડી વડ",
     "વજડી વિરદા": "વાજડી વીરડા",
-    "હડમતલા": "હડમતાળા",
-    "મેંગાણી": "મેંગણી",
-    "રિબડા": "રીબડા",
-    "ખંડેરી": "ખંઢેરી",
-    "માપાની": "માપણી",
-    "ટીપ્પીટ": "ટીપ્પણ શીટ",
-    "શું": "વડ",
-    "સાંકળ": "બેડી",
-    "પાઈકી": "પૈકી",
-    "ગૂંડા": "ગુંદા",
-    "ગુંડા": "ગુંદા",
-    "મંદિર": "ડેર",
-    "મોતી": "મોટી",
+    "ન્યૂ જાગનાથ": "ન્યુ જગનાથ",
     "ખેરડીયા": "ખેરાડીયા",
+    "સર્વે નો": "સર્વે નંબર",
     "જાગનાથ": "જગનાથ",
-    "પ્રતિક": "પ્રતીક",
+    "હાડમાટલા": "હડમતાળા",
+    "હડમતલા": "હડમતાળા",
+    "અરડોઇ": "અરડોઈ",
+    "મેંગની": "મેંગણી",
+    "બેદી": "બેડી",
+    "પાઈકી": "પૈકી",
     "ટીપ્પન": "ટીપ્પણ",
     "માપાણી": "માપણી",
+    "એન્ડ": "અને",
 }
 
 INDEPENDENT_VOWELS = {
@@ -1089,7 +1086,15 @@ def transliterate_english_to_gujarati(text: str) -> str:
 
     return _to_gujarati_digits("".join(parts))
 
-def translate_with_google(text: str) -> str:
+def transliterate_indic_input(text: str) -> str:
+    """
+    Phonetic Indic transliteration engine (No API Key Required).
+    1. Pre-substitutes known Rajkot & Gujarat place names, talukas, and legal terms.
+    2. Uses Indic phonetic transliteration for English words without language hallucination.
+    3. Preserves all punctuation, slashes, numbers, and formatting.
+    4. Post-corrects machine artifacts using DICT_OVERRIDES.
+    5. Converts numbers to Gujarati numerals (0-9 -> ૦-૯).
+    """
     if not text or not text.strip():
         return text
 
@@ -1097,7 +1102,7 @@ def translate_with_google(text: str) -> str:
 
     # 1. Pre-substitute known phrases and place names from dictionary
     for key in _SORTED_TRANSLATION_KEYS:
-        pattern = re.compile(r"\\b" + re.escape(key) + r"\\b", re.IGNORECASE)
+        pattern = re.compile(r"" + re.escape(key) + r"", re.IGNORECASE)
         if pattern.search(working):
             working = pattern.sub(COMMON_TRANSLATIONS[key], working)
 
@@ -1105,22 +1110,30 @@ def translate_with_google(text: str) -> str:
     if not any(c.isalpha() and ord(c) < 128 for c in working):
         return _to_gujarati_digits(working)
 
-    # 2. Call Google Translate API forcing sl=en&tl=gu (prevents language hallucination)
-    try:
-        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=gu&dt=t&q=" + urllib.parse.quote(working)
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        res = urllib.request.urlopen(req, timeout=5)
-        data = json.loads(res.read().decode("utf-8"))
-        translated_parts = [item[0] for item in data[0] if item and item[0]]
-        translated = "".join(translated_parts).strip()
-        if translated:
-            for k, v in DICT_OVERRIDES.items():
-                translated = translated.replace(k, v)
-            return _to_gujarati_digits(translated)
-    except Exception as e:
-        print(f"Google Translate API fallback: {e}")
+    # 2. Extract remaining English words to transliterate with Indic Input Tools
+    words = list(dict.fromkeys(re.findall(r"[a-zA-Z]+", working)))
+    if words:
+        try:
+            nl = chr(10)
+            query = nl.join(words)
+            url = "https://inputtools.google.com/request?text=" + urllib.parse.quote(query) + "&itc=gu-t-i0-und&num=1&cp=0&cs=1&ie=utf-8&oe=utf-8"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            res = json.loads(urllib.request.urlopen(req, timeout=5).read().decode("utf-8"))
+            if res[0] == "SUCCESS" and res[1]:
+                trans_words = res[1][0][1][0].split(nl)
+                mapping = dict(zip(words, trans_words))
+                working = re.sub(r"[a-zA-Z]+", lambda m: mapping.get(m.group(0), m.group(0)), working)
+        except Exception as e:
+            print(f"Indic transliteration API fallback: {e}")
+            working = transliterate_english_to_gujarati(working)
 
-    return transliterate_english_to_gujarati(working)
+    for k, v in DICT_OVERRIDES.items():
+        working = working.replace(k, v)
+
+    return _to_gujarati_digits(working)
+
+# Alias for backward compatibility
+translate_with_google = transliterate_indic_input
 
 def normalize_value_for_form(value: str) -> str:
     if not value:
