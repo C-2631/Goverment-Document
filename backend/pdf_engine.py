@@ -103,11 +103,6 @@ PREDEFINED_FIELDS = {
     "address_line2":  ("NEW JAGNATH PLOT, RAJKOT, 360001", 330, 736, "Helvetica-Bold", 9),
     "mobile":         (PREDEFINED_MOBILE, 330, 712, "Helvetica-Bold", 10),
     # "date" is intentionally left blank
-
-    # Officer block (left side of form)
-    "to_officer":       ("LAND RECORD INSPECTOR", 42, 688, "Helvetica-Bold", 10),
-    "officer_district": ("RAJKOT", 42, 675, "Helvetica-Bold", 10),
-    "office_village":   ("RAJKOT", 65, 653, "Helvetica-Bold", 10),
 }
 
 # Fields to skip in the dynamic (chatbot) rendering loop.
@@ -162,11 +157,19 @@ def generate_pdf(session_id: str, data: dict) -> str:
     if not flat_data.get("body_name") and flat_data.get("applicant_name"):
         flat_data["body_name"] = flat_data["applicant_name"]
         
-    # If body fields are empty, copy from subject fields
+    # If body fields are empty, copy from subject fields (Change 3: Auto-mirror)
     for field in ["moje", "taluko", "jillo", "survey_no"]:
         subj_val = flat_data.get(f"subject_{field}", "")
         if subj_val and not flat_data.get(f"body_{field}"):
             flat_data[f"body_{field}"] = subj_val
+
+    # Change 2: Recipient "To" block in Gujarati
+    if not flat_data.get("to_officer"):
+        flat_data["to_officer"] = "લેન્ડ રેકોર્ડ ઇન્સ્પેક્ટર"
+    if not flat_data.get("office_village"):
+        flat_data["office_village"] = "રાજકોટ"
+    if not flat_data.get("officer_district"):
+        flat_data["officer_district"] = flat_data.get("office_village", "રાજકોટ")
 
     # Create PDF canvas in memory
     packet = io.BytesIO()
@@ -191,14 +194,16 @@ def generate_pdf(session_id: str, data: dict) -> str:
             can.setFont(font_name, size)
             can.drawString(x, y, val_str)
 
-    # Place signature (pre-defined permanent signature)
-    sig_path = data.get("signature_path") or DEFAULT_SIGN_PATH
-    if sig_path and os.path.exists(sig_path):
-        # Position at the "આપનો વિશ્વાસુ (સહી)" right side area
-        # X ~ 420, Y ~ 330, width=100, height=45
-        can.drawImage(sig_path, 420, 330, width=100, height=45, mask='auto')
-    else:
-        print(f"Warning: Signature file not found at {sig_path}")
+    # Change 1: White out any legacy stamp placeholder area for clean rendering
+    can.setFillColorRGB(1, 1, 1)
+    can.rect(30, 725, 140, 80, fill=1, stroke=0)
+    can.setFillColorRGB(0, 0, 0)
+
+    # Change 1: Do NOT draw static blue signature placeholder.
+    # Only draw real signature if user explicitly provided a custom signature image.
+    user_sig_path = data.get("signature_path")
+    if user_sig_path and os.path.exists(user_sig_path) and user_sig_path != DEFAULT_SIGN_PATH:
+        can.drawImage(user_sig_path, 420, 330, width=100, height=45, mask='auto')
 
     can.save()
     packet.seek(0)

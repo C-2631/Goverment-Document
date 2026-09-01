@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import IndicInput from "./IndicInput";
+import LocationDropdowns from "./LocationDropdowns";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -11,25 +13,68 @@ export default function NakalChatbot() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [totalFields] = useState(17);
+  const [totalFields] = useState(14); // 14 steps (Zone B body fields are auto-mirrored)
   const bottomRef = useRef(null);
-  const inputRef = useRef(null);
 
-  // Count filled fields for progress
-  const filledCount = Object.values(formData).filter(
-    (v) => v && String(v).trim() !== "" && v !== "-"
-  ).length;
-  const pct = Math.round((filledCount / totalFields) * 100);
+  // Field definitions to detect active question and auto-mirroring
+  const FIELD_KEYS = [
+    "applicant_name",
+    "address",
+    "mobile",
+    "date",
+    "to_officer",
+    "office_village",
+    "subject_moje",
+    "subject_taluko",
+    "subject_jillo",
+    "subject_survey_no",
+    "copy_details",
+    "copy_quantity",
+    "mtr_no",
+    "online_app_no",
+    "surveyor_name",
+    "measurement_date",
+    "deposit_fee",
+    "behalf_name",
+  ];
+
+  // Helper to find the current active field
+  const getCurrentField = () => {
+    for (const key of FIELD_KEYS) {
+      const val = formData[key];
+      if (val === undefined || val === null || String(val).trim() === "") {
+        return key;
+      }
+    }
+    return null;
+  };
+
+  const currentField = getCurrentField();
+
+  // Count filled main fields for progress
+  const filledCount = [
+    "applicant_name",
+    "address",
+    "mobile",
+    "date",
+    "to_officer",
+    "office_village",
+    "subject_moje",
+    "subject_survey_no",
+    "copy_details",
+    "copy_quantity",
+    "mtr_no",
+    "online_app_no",
+    "deposit_fee",
+    "behalf_name",
+  ].filter((k) => formData[k] && String(formData[k]).trim() !== "" && formData[k] !== "-").length;
+
+  const pct = Math.min(100, Math.round((filledCount / totalFields) * 100));
 
   // Auto-scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // Focus input
-  useEffect(() => {
-    if (!done && !loading) inputRef.current?.focus();
-  }, [done, loading, messages]);
+  }, [messages, currentField]);
 
   // Initialize session on mount
   useEffect(() => {
@@ -41,10 +86,24 @@ export default function NakalChatbot() {
         setSessionId(data.session_id);
         setFormData(data.form_data || {});
         if (data.initial_question) {
-          setMessages([{ r: "bot", t: `નમસ્તે! 🙏 નકલ મેળવવાની અરજી ફોર્મ ભરવા માટે આપનું સ્વાગત છે.\n\nWelcome! Let's fill in the Nakal Application Form.\n\n${data.initial_question}` }]);
+          setMessages([
+            {
+              r: "bot",
+              t: `નમસ્તે! 🙏 નકલ મેળવવાની અરજી ફોર્મ ભરવા માટે આપનું સ્વાગત છે.
+
+Welcome! Let's fill in the Nakal Application Form.
+
+${data.initial_question}`,
+            },
+          ]);
         }
       } catch (err) {
-        setMessages([{ r: "bot", t: "⚠️ Could not connect to server. Please make sure the backend is running on port 8000." }]);
+        setMessages([
+          {
+            r: "bot",
+            t: "⚠️ Could not connect to server. Please make sure the backend is running.",
+          },
+        ]);
       }
     };
     initSession();
@@ -52,12 +111,14 @@ export default function NakalChatbot() {
 
   const addMsg = useCallback((msgs) => setMessages((p) => [...p, ...msgs]), []);
 
-  const handleSend = async () => {
-    const raw = input.trim();
+  // Standard message sender
+  const handleSend = async (customVal) => {
+    const raw = (customVal !== undefined ? customVal : input).trim();
     if (!raw || !apiKey) return;
     addMsg([{ r: "user", t: raw }]);
     setInput("");
     setLoading(true);
+
     try {
       const res = await fetch(`${API_BASE}/chat`, {
         method: "POST",
@@ -71,8 +132,10 @@ export default function NakalChatbot() {
       setFormData(data.form_data || {});
       if (data.reply) {
         addMsg([{ r: "bot", t: data.reply }]);
-        // Check if all fields are done
-        if (data.reply.includes("અભિનંદન") || data.reply.includes("All form details are completed")) {
+        if (
+          data.reply.includes("અભિનંદન") ||
+          data.reply.includes("All form details are completed")
+        ) {
           setDone(true);
         }
       }
@@ -82,6 +145,7 @@ export default function NakalChatbot() {
     setLoading(false);
   };
 
+  // Skip optional field
   const handleSkip = async () => {
     if (!apiKey) return;
     addMsg([{ r: "user", t: "(skip)" }]);
@@ -99,12 +163,69 @@ export default function NakalChatbot() {
       setFormData(data.form_data || {});
       if (data.reply) {
         addMsg([{ r: "bot", t: data.reply }]);
-        if (data.reply.includes("અભિનંદન") || data.reply.includes("All form details are completed")) {
+        if (
+          data.reply.includes("અભિનંદન") ||
+          data.reply.includes("All form details are completed")
+        ) {
           setDone(true);
         }
       }
     } catch (err) {
       addMsg([{ r: "bot", t: "⚠️ Error communicating with server. Please try again." }]);
+    }
+    setLoading(false);
+  };
+
+  // Change 3: Handling Cascading Location Selection & Auto-Mirroring
+  const handleLocationComplete = async ({ jillo, taluko, moje }) => {
+    if (!apiKey) return;
+    setLoading(true);
+
+    const locationSummary = `📍 સ્થળ: મોજે ${moje}, તાલુકો ${taluko}, જિલ્લો ${jillo}`;
+    addMsg([{ r: "user", t: locationSummary }]);
+
+    try {
+      // Direct API update to update all 3 location fields and their mirrors at once
+      const updatePayload = {
+        subject_jillo: jillo,
+        body_jillo: jillo,
+        subject_taluko: taluko,
+        body_taluko: taluko,
+        subject_moje: moje,
+        body_moje: moje,
+      };
+
+      const res = await fetch(`${API_BASE}/form-data`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-KEY": apiKey,
+        },
+        body: JSON.stringify(updatePayload),
+      });
+
+      const data = await res.json();
+      setFormData(data.form_data || {});
+
+      // Fetch the next question (which will be subject_survey_no)
+      const sessionRes = await fetch(`${API_BASE}/session`, {
+        headers: { "X-API-KEY": apiKey },
+      });
+      const sessionData = await sessionRes.json();
+
+      if (sessionData.initial_question) {
+        addMsg([
+          {
+            r: "bot",
+            t: `✓ જમીનનું સ્થળ સેવ થયેલ છે: મોજે ${moje}, તાલુકો ${taluko}, જિલ્લો ${jillo}.
+(આ વિગતો આપોઆપ બંને સેક્શનમાં ભરાઈ ગઈ છે.)
+
+${sessionData.initial_question}`,
+          },
+        ]);
+      }
+    } catch (err) {
+      addMsg([{ r: "bot", t: "⚠️ Error saving location data. Please try again." }]);
     }
     setLoading(false);
   };
@@ -145,13 +266,72 @@ export default function NakalChatbot() {
       setSessionId(data.session_id);
       setFormData(data.form_data || {});
       setDone(false);
-      setMessages([{ r: "bot", t: `🔄 New form started!\n\n${data.initial_question || ""}` }]);
+      setMessages([
+        {
+          r: "bot",
+          t: `🔄 New form started!
+
+${data.initial_question || ""}`,
+        },
+      ]);
     } catch (err) {
       addMsg([{ r: "bot", t: "⚠️ Could not create new session." }]);
     }
   };
 
-  // Styles (adapted from original NakalChatbot)
+  // Quick suggestion chips based on active question
+  const getSuggestionsForField = (field) => {
+    switch (field) {
+      case "to_officer":
+        return [
+          "લેન્ડ રેકોર્ડ ઇન્સ્પેક્ટર",
+          "મામલતદાર શ્રી",
+          "દફતરદાર શ્રી",
+          "નાયબ મામલતદાર",
+        ];
+      case "office_village":
+        return ["રાજકોટ", "ગોંડલ", "જેતપુર", "મોરબી", "જામનગર"];
+      case "copy_details":
+        return [
+          "ટીપ્પણ શીટ",
+          "માપણી શીટ",
+          "ટીપ્પણ તથા માપણી શીટ",
+          "ગામ નમૂના ૭/૧૨ નકલ",
+        ];
+      case "copy_quantity":
+        return ["૧", "૨", "૩", "૫"];
+      case "date":
+        return ["today"];
+      default:
+        return [];
+    }
+  };
+
+  const chips = getSuggestionsForField(currentField);
+
+  // Field labels for display
+  const FIELD_LABELS = {
+    applicant_name: "અરજદારનું નામ",
+    address: "સરનામું",
+    mobile: "મોબાઈલ",
+    date: "તારીખ",
+    to_officer: "પ્રતિશ્રી (અધિકારી)",
+    office_village: "કચેરી મું.",
+    subject_moje: "મોજે (ગામ)",
+    subject_taluko: "તાલુકો",
+    subject_jillo: "જીલ્લો",
+    subject_survey_no: "સર્વે નં.",
+    copy_details: "માંગેલ રેકોર્ડ",
+    copy_quantity: "નકલ નંગ",
+    mtr_no: "MTR No.",
+    online_app_no: "ઓનલાઈન અરજી નં.",
+    surveyor_name: "સર્વેયર",
+    measurement_date: "માપણી તારીખ",
+    deposit_fee: "ડીપોઝીટ",
+    behalf_name: "વતી વ્યક્તિ",
+  };
+
+  // Styles
   const C = {
     page: {
       minHeight: "100vh",
@@ -159,7 +339,7 @@ export default function NakalChatbot() {
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
-      padding: 16,
+      padding: "16px 12px",
       fontFamily: "'Segoe UI',sans-serif",
     },
     header: {
@@ -171,10 +351,10 @@ export default function NakalChatbot() {
       color: "white",
       boxShadow: "0 4px 18px rgba(0,0,0,0.22)",
     },
-    h1: { fontSize: 21, fontWeight: 700 },
+    h1: { fontSize: 20, fontWeight: 700 },
     h2: { fontSize: 13, opacity: 0.85, marginTop: 4 },
     bar: { marginTop: 12 },
-    barLbl: { fontSize: 13, opacity: 0.8, marginBottom: 4 },
+    barLbl: { fontSize: 12.5, opacity: 0.85, marginBottom: 4 },
     barBg: { background: "rgba(255,255,255,0.2)", borderRadius: 10, height: 8 },
     barFill: (p) => ({
       background: "#4fc3f7",
@@ -189,8 +369,8 @@ export default function NakalChatbot() {
       flex: 1,
       background: "white",
       overflowY: "auto",
-      maxHeight: "52vh",
-      padding: 20,
+      maxHeight: "50vh",
+      padding: "18px 16px",
       display: "flex",
       flexDirection: "column",
       gap: 12,
@@ -203,8 +383,8 @@ export default function NakalChatbot() {
     bubble: (r) => ({
       maxWidth: "85%",
       padding: "12px 16px",
-      fontSize: 15.5,
-      lineHeight: 1.7,
+      fontSize: 15,
+      lineHeight: 1.65,
       whiteSpace: "pre-wrap",
       borderRadius:
         r === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
@@ -220,28 +400,42 @@ export default function NakalChatbot() {
       borderTop: "1px solid #dde",
       padding: "14px 16px",
       display: "flex",
+      flexDirection: "column",
       gap: 10,
       boxShadow: "0 4px 18px rgba(0,0,0,0.08)",
     },
-    textarea: {
-      flex: 1,
-      border: "1.5px solid #bcd",
-      borderRadius: 12,
-      padding: "12px 16px",
-      fontSize: 15.5,
-      resize: "none",
-      height: 52,
-      fontFamily: "'Noto Serif Gujarati','Segoe UI',sans-serif",
-      outline: "none",
+    chipsRow: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 6,
+      alignItems: "center",
+    },
+    chipBtn: {
+      background: "#e8f4fc",
+      border: "1px solid #bcd",
+      borderRadius: 20,
+      padding: "4px 12px",
+      fontSize: 13,
+      fontFamily: "'Noto Serif Gujarati', serif",
+      color: "#1a3a5c",
+      fontWeight: 600,
+      cursor: "pointer",
+      transition: "all 0.15s",
+    },
+    controlsRow: {
+      display: "flex",
+      gap: 10,
+      alignItems: "center",
     },
     skipBtn: {
       background: "#e4ecf4",
       border: "none",
       borderRadius: 12,
       padding: "0 16px",
+      height: 46,
       cursor: "pointer",
       color: "#555",
-      fontSize: 14,
+      fontSize: 13.5,
       fontWeight: 600,
     },
     sendBtn: (dis) => ({
@@ -250,6 +444,7 @@ export default function NakalChatbot() {
       borderRadius: 12,
       color: "white",
       padding: "0 22px",
+      height: 46,
       cursor: dis ? "default" : "pointer",
       fontSize: 22,
       fontWeight: 700,
@@ -263,7 +458,7 @@ export default function NakalChatbot() {
       color: "white",
       padding: "16px",
       cursor: dis ? "default" : "pointer",
-      fontSize: 17,
+      fontSize: 16.5,
       fontWeight: 700,
       letterSpacing: 0.5,
       boxShadow: "0 4px 14px rgba(26,58,92,.35)",
@@ -299,18 +494,18 @@ export default function NakalChatbot() {
       marginTop: 4,
     },
     sumHdr: {
-      fontSize: 14,
+      fontSize: 13.5,
       fontWeight: 700,
       color: "#1a3a5c",
       marginBottom: 8,
     },
-    chips: { display: "flex", flexWrap: "wrap", gap: 8 },
+    chipsGrid: { display: "flex", flexWrap: "wrap", gap: 8 },
     chip: {
       background: "white",
       border: "1px solid #c8dff0",
       borderRadius: 8,
-      padding: "5px 12px",
-      fontSize: 14,
+      padding: "4px 10px",
+      fontSize: 13,
     },
     chipLbl: { color: "#1a3a5c", fontWeight: 700 },
     footer: {
@@ -321,30 +516,15 @@ export default function NakalChatbot() {
     },
   };
 
-  // Field labels for display
-  const FIELD_LABELS = {
-    applicant_name: "અરજદારનું નામ",
-    address: "સરનામું",
-    mobile: "મોબાઈલ",
-    date: "તારીખ",
-    to_officer: "પ્રતિશ્રી",
-    office_village: "કચેરી મું.",
-    subject_moje: "મોજે",
-    subject_taluko: "તાલુકો",
-    subject_jillo: "જીલ્લો",
-    subject_survey_no: "સર્વે નં.",
-    copy_details: "રેકોર્ડ",
-    copy_quantity: "નકલ નંગ",
-    mtr_no: "MTR No.",
-    online_app_no: "ઓનલાઈન અરજી નં.",
-    surveyor_name: "સર્વેયર",
-    measurement_date: "માપણી તારીખ",
-    deposit_fee: "ડીપોઝીટ",
-    behalf_name: "વતી",
-  };
+  // Determine if active question is Location (Change 3)
+  const isLocationStep =
+    currentField === "subject_moje" ||
+    currentField === "subject_taluko" ||
+    currentField === "subject_jillo";
 
   return (
     <div style={C.page}>
+      {/* Header */}
       <div style={C.header}>
         <div style={C.h1}>નકલ મેળવવાની અરજી — Chatbot Form</div>
         <div style={C.h2}>
@@ -362,6 +542,7 @@ export default function NakalChatbot() {
         )}
       </div>
 
+      {/* Chat messages */}
       <div style={C.chat}>
         {messages.map((m, i) => (
           <div key={i} style={C.bubbleWrap(m.r)}>
@@ -370,9 +551,7 @@ export default function NakalChatbot() {
         ))}
         {loading && (
           <div style={C.bubbleWrap("bot")}>
-            <div
-              style={{ ...C.bubble("bot"), color: "#888", fontStyle: "italic" }}
-            >
+            <div style={{ ...C.bubble("bot"), color: "#888", fontStyle: "italic" }}>
               ⏳ Processing...
             </div>
           </div>
@@ -380,33 +559,70 @@ export default function NakalChatbot() {
         <div ref={bottomRef} />
       </div>
 
+      {/* Input Area */}
       <div style={C.inputArea}>
         {!done ? (
           <>
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              disabled={loading || !apiKey}
-              placeholder="Type your answer here... (English or ગુજરાતી)"
-              style={C.textarea}
-            />
-            <button onClick={handleSkip} disabled={loading} style={C.skipBtn}>
-              Skip
-            </button>
-            <button
-              onClick={handleSend}
-              disabled={loading || !input.trim()}
-              style={C.sendBtn(loading || !input.trim())}
-            >
-              ➤
-            </button>
+            {/* Quick-select pill chips */}
+            {chips.length > 0 && !isLocationStep && (
+              <div style={C.chipsRow}>
+                <span style={{ fontSize: 11.5, color: "#666", fontWeight: 600 }}>
+                  ઝડપી પસંદગી (Quick Select):
+                </span>
+                {chips.map((chipText, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    style={C.chipBtn}
+                    onClick={() => handleSend(chipText)}
+                    disabled={loading}
+                  >
+                    {chipText}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Change 3: Location Cascading Dropdowns */}
+            {isLocationStep ? (
+              <LocationDropdowns
+                initialValues={{
+                  jillo: formData.subject_jillo || "રાજકોટ",
+                  taluko: formData.subject_taluko || "રાજકોટ",
+                  moje: formData.subject_moje || "",
+                }}
+                onComplete={handleLocationComplete}
+              />
+            ) : (
+              /* Change 2: Google Indic Input Transliteration Component */
+              <div style={C.controlsRow}>
+                <div style={{ flex: 1 }}>
+                  <IndicInput
+                    value={input}
+                    onChange={(val) => setInput(val)}
+                    onSubmit={() => handleSend()}
+                    disabled={loading || !apiKey}
+                    placeholder="Type in English or ગુજરાતી... (e.g. Land Record Inspector)"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  disabled={loading}
+                  style={C.skipBtn}
+                >
+                  Skip
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSend()}
+                  disabled={loading || !input.trim()}
+                  style={C.sendBtn(loading || !input.trim())}
+                >
+                  ➤
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div style={{ display: "flex", gap: 10, width: "100%", flexDirection: "column" }}>
@@ -416,9 +632,7 @@ export default function NakalChatbot() {
                 disabled={downloading}
                 style={{ ...C.pdfBtn(downloading), flex: 1 }}
               >
-                {downloading
-                  ? "📄 Generating PDF..."
-                  : "📥 Download Filled PDF"}
+                {downloading ? "📄 Generating PDF..." : "📥 Download Filled PDF"}
               </button>
               <button onClick={handlePreview} style={C.previewBtn}>
                 👁️ Preview
@@ -433,22 +647,23 @@ export default function NakalChatbot() {
         )}
       </div>
 
+      {/* Summary Chips Preview */}
       {Object.keys(formData).length > 0 && (
         <div style={C.summary}>
           <div style={C.sumHdr}>📋 Collected Data Preview:</div>
-          <div style={C.chips}>
+          <div style={C.chipsGrid}>
             {Object.entries(formData)
-              .filter(([, v]) => v && String(v).trim() !== "" && v !== "-")
+              .filter(
+                ([key, v]) =>
+                  v &&
+                  String(v).trim() !== "" &&
+                  v !== "-" &&
+                  !key.startsWith("body_") // Don't duplicate mirrored fields in preview chips
+              )
               .map(([key, val]) => (
                 <div key={key} style={C.chip}>
-                  <span style={C.chipLbl}>
-                    {FIELD_LABELS[key] || key}:{" "}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "'Noto Serif Gujarati',serif",
-                    }}
-                  >
+                  <span style={C.chipLbl}>{FIELD_LABELS[key] || key}: </span>
+                  <span style={{ fontFamily: "'Noto Serif Gujarati',serif" }}>
                     {val}
                   </span>
                 </div>
@@ -456,6 +671,8 @@ export default function NakalChatbot() {
           </div>
         </div>
       )}
+
+      {/* Footer */}
       <div style={C.footer}>
         Powered by FastAPI • Noto Sans Gujarati • Server-side PDF Generation
       </div>

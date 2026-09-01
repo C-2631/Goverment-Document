@@ -203,6 +203,14 @@ def get_form_data(session_id: str) -> dict:
 
 
 def update_form_data(session_id: str, data: dict):
+    # Auto-mirror fields (Change 3: Auto-populate Zone B from Zone A)
+    data = data.copy()
+    if "applicant_name" in data and "body_name" not in data:
+        data["body_name"] = data["applicant_name"]
+    for f in ["moje", "taluko", "jillo", "survey_no"]:
+        if f"subject_{f}" in data and f"body_{f}" not in data:
+            data[f"body_{f}"] = data[f"subject_{f}"]
+
     conn = get_db()
     cursor = conn.cursor()
     ph = "%s" if is_postgres() else "?"
