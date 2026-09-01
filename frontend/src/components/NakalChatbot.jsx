@@ -180,21 +180,60 @@ ${data.initial_question}`,
   const handleLocationComplete = async ({ jillo, taluko, moje }) => {
     if (!apiKey) return;
 
-    // Optimistically update local form data so currentField immediately moves to subject_survey_no
-    setFormData((prev) => ({
-      ...prev,
+    const locFields = {
       subject_moje: moje,
       body_moje: moje,
       subject_taluko: taluko,
       body_taluko: taluko,
       subject_jillo: jillo,
       body_jillo: jillo,
-    }));
+    };
 
-    // Send single composite message to POST /api/chat
+    // Optimistically update local form data
+    setFormData((prev) => ({ ...prev, ...locFields }));
+
     const locationSummary = `મોજે ${moje}, તાલુકો ${taluko}, જિલ્લો ${jillo}`;
-    await handleSend(locationSummary);
+    addMsg([{ r: "user", t: `📍 સ્થળ: ${locationSummary}` }]);
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-KEY": apiKey,
+        },
+        body: JSON.stringify({ message: locationSummary }),
+      });
+      const data = await res.json();
+
+      // Merge server response WITH optimistic location data to prevent overwrite
+      setFormData((prev) => ({
+        ...(data.form_data || prev),
+        ...locFields,
+      }));
+
+      if (data.reply) {
+        addMsg([{ r: "bot", t: data.reply }]);
+        if (
+          data.reply.includes("અભિનંદન") ||
+          data.reply.includes("All form details are completed")
+        ) {
+          setDone(true);
+        }
+      }
+    } catch (err) {
+      // Even on error, keep the optimistic location data
+      addMsg([
+        {
+          r: "bot",
+          t: `✓ સ્થળ સેવ થયું: મોજે ${moje}, તાલુકો ${taluko}, જિલ્લો ${jillo}\n\nજમીનનો સર્વે નંબર જણાવો (દા.ત. ૧૨૪/૧):\n(English) Please enter land survey number (e.g. 124/1):`,
+        },
+      ]);
+    }
+    setLoading(false);
   };
+
 
   const handleDownload = async () => {
     if (!apiKey) return;
