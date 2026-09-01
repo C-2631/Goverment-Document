@@ -37,8 +37,6 @@ FIELD_QUESTIONS = [
         "નકલ મેળવવા માટેની જમીન કયા ગામમાં આવેલી છે (મોજે) તે જણાવો:",
         "Please enter land village (Moje):",
     ),
-    ("subject_taluko", "જમીનનો તાલુકો જણાવો:", "Please enter land taluka:"),
-    ("subject_jillo", "જમીનનો જીલ્લો જણાવો:", "Please enter land district:"),
     (
         "subject_survey_no",
         "જમીનનો સર્વે નંબર જણાવો (દા.ત. ૧૨૪/૧):",
@@ -1278,56 +1276,6 @@ def process_chat_message(session_id: str, user_message: str) -> str:
                     confirm_prefix = f"✓ નોંધાયેલ: {normalized_val}"
                 else:
                     confirm_prefix = f'✓ Google Indic Transliteration: "{msg}" ➔ "{normalized_val}"'
-
-    updated_form_data = get_form_data(session_id)
-    next_question = get_next_question(updated_form_data)
-
-    if next_question:
-        if confirm_prefix:
-            reply = f"{confirm_prefix}\n\n{next_question}"
-        else:
-            reply = next_question
-    else:
-        completion_msg = (
-            "અભિનંદન! ફોર્મની બધી જ વિગતો ભરાઈ ગઈ છે. તમે ઉપર આપેલા બટનથી પીડીએફ ડાઉનલોડ કરી શકો છો.\n"
-            "(English) Great! All form details are completed. You can now download the PDF using the button above."
-        )
-        if confirm_prefix:
-            reply = f"{confirm_prefix}\n\n{completion_msg}"
-        else:
-            reply = completion_msg
-
-    add_chat_message(session_id, "user", user_message)
-    add_chat_message(session_id, "bot", reply)
-
-    return reply
-
-    current_field = None
-    for field_name, _, _ in FIELD_QUESTIONS:
-        val = form_data.get(field_name, "")
-        if val is None or str(val).strip() == "":
-            current_field = field_name
-            break
-
-    confirm_prefix = ""
-
-    if current_field:
-        if msg.lower() in ["skip", "સ્કીપ", "નથી", "no", "-", "નથી રાખવું"]:
-            update_form_data(session_id, {current_field: "-"})
-            confirm_prefix = "⏭️ સ્કીપ કરેલ છે (Skipped)."
-        else:
-            if current_field == "date" and msg.lower() in ["today", "આજે", "આજની"]:
-                today_str = datetime.date.today().strftime("%d-%m-%Y")
-                normalized_val = _to_gujarati_digits(today_str)
-                update_form_data(session_id, {current_field: normalized_val})
-                confirm_prefix = f"✓ આજની તારીખ (Today): {normalized_val}"
-            else:
-                normalized_val = normalize_value_for_form(msg)
-                update_form_data(session_id, {current_field: normalized_val})
-                if _contains_gujarati(msg):
-                    confirm_prefix = f"✓ નોંધાયેલ: {normalized_val}"
-                else:
-                    confirm_prefix = f"✓ Google Translation: \"{msg}\" ➔ \"{normalized_val}\""
 
     updated_form_data = get_form_data(session_id)
     next_question = get_next_question(updated_form_data)

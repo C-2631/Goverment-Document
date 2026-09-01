@@ -25,8 +25,6 @@ export default function NakalChatbot() {
     "to_officer",
     "office_village",
     "subject_moje",
-    "subject_taluko",
-    "subject_jillo",
     "subject_survey_no",
     "copy_details",
     "copy_quantity",
@@ -522,10 +520,7 @@ ${data.initial_question || ""}`,
   };
 
   // Determine if active question is Location (Change 3)
-  const isLocationStep =
-    currentField === "subject_moje" ||
-    currentField === "subject_taluko" ||
-    currentField === "subject_jillo";
+  const isLocationStep = currentField === "subject_moje";
 
   return (
     <div style={C.page}>
@@ -597,6 +592,7 @@ ${data.initial_question || ""}`,
                   moje: formData.subject_moje || "",
                 }}
                 onComplete={handleLocationComplete}
+                submitting={loading}
               />
             ) : (
               /* Change 2: Google Indic Input Transliteration Component */

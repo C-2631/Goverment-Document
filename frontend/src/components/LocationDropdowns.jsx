@@ -16,22 +16,25 @@ export default function LocationDropdowns({
   onChange,
   onComplete,
   disabled = false,
+  submitting: externalSubmitting,
 }) {
   const [district, setDistrict] = useState(initialValues.jillo || DEFAULT_DIST);
   const [taluka, setTaluka] = useState(initialValues.taluko || "રાજકોટ");
   const [village, setVillage] = useState(initialValues.moje || "");
   const [customVillage, setCustomVillage] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [internalSubmitting, setInternalSubmitting] = useState(false);
+
+  const submitting = externalSubmitting !== undefined ? externalSubmitting : internalSubmitting;
 
   const talukas = getTalukas(district);
   const villages = getVillages(district, taluka);
 
-  // Sync initial values
+  // Sync initial values only when primitive strings change
   useEffect(() => {
     if (initialValues.jillo) setDistrict(initialValues.jillo);
     if (initialValues.taluko) setTaluka(initialValues.taluko);
     if (initialValues.moje) setVillage(initialValues.moje);
-  }, [initialValues]);
+  }, [initialValues.jillo, initialValues.taluko, initialValues.moje]);
 
   // When district changes ➔ reset taluka and village
   const handleDistrictChange = (e) => {
@@ -84,13 +87,13 @@ export default function LocationDropdowns({
       alert("મહેરબાની કરીને જિલ્લો, તાલુકો અને મોજે ગામ પસંદ કરો / લખો.");
       return;
     }
-    setSubmitting(true);
+    setInternalSubmitting(true);
     if (onComplete) {
       onComplete({ jillo: district, taluko, moje: finalVillage });
     }
     setTimeout(() => {
-      setSubmitting(false);
-    }, 4000);
+      setInternalSubmitting(false);
+    }, 3000);
   };
 
   const selectStyle = {
