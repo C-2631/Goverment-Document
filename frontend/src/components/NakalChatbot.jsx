@@ -179,55 +179,21 @@ ${data.initial_question}`,
   // Change 3: Handling Cascading Location Selection & Auto-Mirroring
   const handleLocationComplete = async ({ jillo, taluko, moje }) => {
     if (!apiKey) return;
-    setLoading(true);
 
-    const locationSummary = `📍 સ્થળ: મોજે ${moje}, તાલુકો ${taluko}, જિલ્લો ${jillo}`;
-    addMsg([{ r: "user", t: locationSummary }]);
+    // Optimistically update local form data so currentField immediately moves to subject_survey_no
+    setFormData((prev) => ({
+      ...prev,
+      subject_moje: moje,
+      body_moje: moje,
+      subject_taluko: taluko,
+      body_taluko: taluko,
+      subject_jillo: jillo,
+      body_jillo: jillo,
+    }));
 
-    try {
-      // Direct API update to update all 3 location fields and their mirrors at once
-      const updatePayload = {
-        subject_jillo: jillo,
-        body_jillo: jillo,
-        subject_taluko: taluko,
-        body_taluko: taluko,
-        subject_moje: moje,
-        body_moje: moje,
-      };
-
-      const res = await fetch(`${API_BASE}/form-data`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-KEY": apiKey,
-        },
-        body: JSON.stringify(updatePayload),
-      });
-
-      const data = await res.json();
-      setFormData(data.form_data || {});
-
-      // Fetch the next question (which will be subject_survey_no)
-      const sessionRes = await fetch(`${API_BASE}/session`, {
-        headers: { "X-API-KEY": apiKey },
-      });
-      const sessionData = await sessionRes.json();
-
-      if (sessionData.initial_question) {
-        addMsg([
-          {
-            r: "bot",
-            t: `✓ જમીનનું સ્થળ સેવ થયેલ છે: મોજે ${moje}, તાલુકો ${taluko}, જિલ્લો ${jillo}.
-(આ વિગતો આપોઆપ બંને સેક્શનમાં ભરાઈ ગઈ છે.)
-
-${sessionData.initial_question}`,
-          },
-        ]);
-      }
-    } catch (err) {
-      addMsg([{ r: "bot", t: "⚠️ Error saving location data. Please try again." }]);
-    }
-    setLoading(false);
+    // Send single composite message to POST /api/chat
+    const locationSummary = `મોજે ${moje}, તાલુકો ${taluko}, જિલ્લો ${jillo}`;
+    await handleSend(locationSummary);
   };
 
   const handleDownload = async () => {

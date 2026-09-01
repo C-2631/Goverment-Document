@@ -88,6 +88,9 @@ export default function LocationDropdowns({
     if (onComplete) {
       onComplete({ jillo: district, taluko, moje: finalVillage });
     }
+    setTimeout(() => {
+      setSubmitting(false);
+    }, 4000);
   };
 
   const selectStyle = {
