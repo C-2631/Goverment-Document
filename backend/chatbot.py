@@ -417,7 +417,8 @@ COMMON_TRANSLATIONS = {
     "deputy collector": "નાયબ કલેક્ટર",
     "prant officer": "પ્રાંત અધિકારી",
     "land record inspector": "જમીન દફતર નિરીક્ષક",
-    "land record": "જમીન દફતર",
+    "land record": "લેન્ડ રેકોર્ડ",
+    "land record inspector": "લેન્ડ રેકોર્ડ ઇન્સ્પેક્ટર",
     "dlr": "ડી.એલ.આર.",
     "city survey superintendent": "સીટી સર્વે સુપ્રિન્ટેન્ડન્ટ",
     "city survey": "સીટી સર્વે",
@@ -1088,12 +1089,11 @@ def transliterate_english_to_gujarati(text: str) -> str:
 
 def transliterate_indic_input(text: str) -> str:
     """
-    Phonetic Indic transliteration engine (No API Key Required).
+    Phonetic Google Indic transliteration engine (No API Key Required).
     1. Pre-substitutes known Rajkot & Gujarat place names, talukas, and legal terms.
-    2. Uses Indic phonetic transliteration for English words without language hallucination.
+    2. Uses Google Indic Input Tools API (gu-t-i0-und) for Gujarati phonetic transliteration.
     3. Preserves all punctuation, slashes, numbers, and formatting.
-    4. Post-corrects machine artifacts using DICT_OVERRIDES.
-    5. Converts numbers to Gujarati numerals (0-9 -> ૦-૯).
+    4. Converts numbers to Gujarati numerals (0-9 -> ૦-૯).
     """
     if not text or not text.strip():
         return text
@@ -1102,7 +1102,7 @@ def transliterate_indic_input(text: str) -> str:
 
     # 1. Pre-substitute known phrases and place names from dictionary
     for key in _SORTED_TRANSLATION_KEYS:
-        pattern = re.compile(r"" + re.escape(key) + r"", re.IGNORECASE)
+        pattern = re.compile(r"\b" + re.escape(key) + r"\b", re.IGNORECASE)
         if pattern.search(working):
             working = pattern.sub(COMMON_TRANSLATIONS[key], working)
 
@@ -1110,7 +1110,17 @@ def transliterate_indic_input(text: str) -> str:
     if not any(c.isalpha() and ord(c) < 128 for c in working):
         return _to_gujarati_digits(working)
 
-    # 2. Extract remaining English words to transliterate with Indic Input Tools
+    # 2. Try phrase-level Indic Transliteration if English phrase remains
+    try:
+        url = "https://inputtools.google.com/request?text=" + urllib.parse.quote(working) + "&itc=gu-t-i0-und&num=1&cp=0&cs=1&ie=utf-8&oe=utf-8"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        res = json.loads(urllib.request.urlopen(req, timeout=5).read().decode("utf-8"))
+        if res[0] == "SUCCESS" and res[1] and res[1][0][1]:
+            working = res[1][0][1][0]
+    except Exception as e:
+        print(f"Phrase-level Indic transliteration fallback: {e}")
+
+    # 3. If English words still remain, do word-by-word Indic Transliteration
     words = list(dict.fromkeys(re.findall(r"[a-zA-Z]+", working)))
     if words:
         try:
@@ -1124,7 +1134,7 @@ def transliterate_indic_input(text: str) -> str:
                 mapping = dict(zip(words, trans_words))
                 working = re.sub(r"[a-zA-Z]+", lambda m: mapping.get(m.group(0), m.group(0)), working)
         except Exception as e:
-            print(f"Indic transliteration API fallback: {e}")
+            print(f"Word-level Indic transliteration fallback: {e}")
             working = transliterate_english_to_gujarati(working)
 
     for k, v in DICT_OVERRIDES.items():
@@ -1165,6 +1175,98 @@ def get_next_question(form_data: dict) -> str | None:
 def process_chat_message(session_id: str, user_message: str) -> str:
     form_data = get_form_data(session_id)
     msg = user_message.strip()
+
+    current_field = None
+    for field_name, _, _ in FIELD_QUESTIONS:
+        val = form_data.get(field_name, "")
+        if val is None or str(val).strip() == "":
+            current_field = field_name
+            break
+
+    confirm_prefix = ""
+
+    # Check if message is a composite location response (e.g. from LocationDropdowns: "મોજે ગઢડા, તાલુકો પડધરી, જિલ્લો રાજકોટ")
+    if current_field in ["subject_moje", "subject_taluko", "subject_jillo"] or ("મોજે" in msg and "તાલુકો" in msg):
+        moje_m = re.search(r"મોજે\s*[:\-]?\s*([^,\|]+)", msg)
+        taluko_m = re.search(r"તાલુકો\s*[:\-]?\s*([^,\|]+)", msg)
+        jillo_m = re.search(r"જિલ્લો\s*[:\-]?\s*([^,\|]+)", msg)
+
+        moje_val = moje_m.group(1).strip() if moje_m else ""
+        taluko_val = taluko_m.group(1).strip() if taluko_m else ""
+        jillo_val = jillo_m.group(1).strip() if jillo_m else ""
+
+        if not moje_val and not taluko_val:
+            parts = [p.strip() for p in re.split(r"[,\|]", msg) if p.strip()]
+            if len(parts) >= 3:
+                moje_val, taluko_val, jillo_val = parts[0], parts[1], parts[2]
+            elif len(parts) == 2:
+                moje_val, taluko_val = parts[0], parts[1]
+                jillo_val = "રાજકોટ"
+            elif len(parts) == 1:
+                moje_val = parts[0]
+
+        loc_updates = {}
+        if moje_val:
+            loc_updates["subject_moje"] = normalize_value_for_form(moje_val)
+            loc_updates["body_moje"] = loc_updates["subject_moje"]
+        if taluko_val:
+            loc_updates["subject_taluko"] = normalize_value_for_form(taluko_val)
+            loc_updates["body_taluko"] = loc_updates["subject_taluko"]
+        if jillo_val:
+            loc_updates["subject_jillo"] = normalize_value_for_form(jillo_val)
+            loc_updates["body_jillo"] = loc_updates["subject_jillo"]
+
+        if loc_updates:
+            update_form_data(session_id, loc_updates)
+            confirm_prefix = (
+                f"✓ જમીનનું સ્થળ સેવ થયેલ છે:\n"
+                f"• મોજે: {loc_updates.get('subject_moje', '')}\n"
+                f"• તાલુકો: {loc_updates.get('subject_taluko', '')}\n"
+                f"• જિલ્લો: {loc_updates.get('subject_jillo', '')}\n"
+                f"(આ વિગતો બંને સેક્શનમાં આપોઆપ ભરાઈ ગઈ છે.)"
+            )
+            current_field = None  # processed via location updates
+
+    if current_field:
+        if msg.lower() in ["skip", "સ્કીપ", "નથી", "no", "-", "નથી રાખવું"]:
+            update_form_data(session_id, {current_field: "-"})
+            confirm_prefix = "⏭️ સ્કીપ કરેલ છે (Skipped)."
+        else:
+            if current_field == "date" and msg.lower() in ["today", "આજે", "આજની"]:
+                today_str = datetime.date.today().strftime("%d-%m-%Y")
+                normalized_val = _to_gujarati_digits(today_str)
+                update_form_data(session_id, {current_field: normalized_val})
+                confirm_prefix = f"✓ આજની તારીખ (Today): {normalized_val}"
+            else:
+                normalized_val = normalize_value_for_form(msg)
+                update_form_data(session_id, {current_field: normalized_val})
+                if _contains_gujarati(msg):
+                    confirm_prefix = f"✓ નોંધાયેલ: {normalized_val}"
+                else:
+                    confirm_prefix = f'✓ Google Indic Transliteration: "{msg}" ➔ "{normalized_val}"'
+
+    updated_form_data = get_form_data(session_id)
+    next_question = get_next_question(updated_form_data)
+
+    if next_question:
+        if confirm_prefix:
+            reply = f"{confirm_prefix}\n\n{next_question}"
+        else:
+            reply = next_question
+    else:
+        completion_msg = (
+            "અભિનંદન! ફોર્મની બધી જ વિગતો ભરાઈ ગઈ છે. તમે ઉપર આપેલા બટનથી પીડીએફ ડાઉનલોડ કરી શકો છો.\n"
+            "(English) Great! All form details are completed. You can now download the PDF using the button above."
+        )
+        if confirm_prefix:
+            reply = f"{confirm_prefix}\n\n{completion_msg}"
+        else:
+            reply = completion_msg
+
+    add_chat_message(session_id, "user", user_message)
+    add_chat_message(session_id, "bot", reply)
+
+    return reply
 
     current_field = None
     for field_name, _, _ in FIELD_QUESTIONS:

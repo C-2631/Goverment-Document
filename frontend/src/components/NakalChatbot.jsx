@@ -528,7 +528,7 @@ ${data.initial_question || ""}`,
       <div style={C.header}>
         <div style={C.h1}>નકલ મેળવવાની અરજી — Chatbot Form</div>
         <div style={C.h2}>
-          પરિશિષ્ટ નં.-૫ • Chatbot Form Filler • Auto-translate to Gujarati
+          પરિશિષ્ટ નં.-૫ • Chatbot Form Filler • Google Indic Transliteration
         </div>
         {!done && (
           <div style={C.bar}>

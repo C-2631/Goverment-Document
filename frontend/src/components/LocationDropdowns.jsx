@@ -9,16 +9,19 @@ import { DISTRICTS, getTalukas, getVillages, DEFAULT_DIST } from "../data/locati
  *   initialValues: { jillo, taluko, moje }
  *   onChange: fn({ jillo, taluko, moje })
  *   onComplete: fn({ jillo, taluko, moje }) — when user clicks Continue
+ *   disabled: boolean
  */
 export default function LocationDropdowns({
   initialValues = {},
   onChange,
   onComplete,
+  disabled = false,
 }) {
   const [district, setDistrict] = useState(initialValues.jillo || DEFAULT_DIST);
   const [taluka, setTaluka] = useState(initialValues.taluko || "રાજકોટ");
   const [village, setVillage] = useState(initialValues.moje || "");
   const [customVillage, setCustomVillage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const talukas = getTalukas(district);
   const villages = getVillages(district, taluka);
@@ -81,6 +84,7 @@ export default function LocationDropdowns({
       alert("મહેરબાની કરીને જિલ્લો, તાલુકો અને મોજે ગામ પસંદ કરો / લખો.");
       return;
     }
+    setSubmitting(true);
     if (onComplete) {
       onComplete({ jillo: district, taluko, moje: finalVillage });
     }
@@ -107,6 +111,8 @@ export default function LocationDropdowns({
     marginBottom: 4,
     fontFamily: "'Noto Serif Gujarati', serif",
   };
+
+  const isBtnDisabled = (!village && !customVillage) || submitting || disabled;
 
   return (
     <div
@@ -142,7 +148,12 @@ export default function LocationDropdowns({
         {/* District */}
         <div>
           <label style={labelStyle}>૧. જિલ્લો (District):</label>
-          <select value={district} onChange={handleDistrictChange} style={selectStyle}>
+          <select
+            value={district}
+            onChange={handleDistrictChange}
+            style={selectStyle}
+            disabled={disabled || submitting}
+          >
             {DISTRICTS.map((d) => (
               <option key={d.gu} value={d.gu}>
                 {d.label}
@@ -158,7 +169,7 @@ export default function LocationDropdowns({
             value={taluka}
             onChange={handleTalukaChange}
             style={{ ...selectStyle, backgroundColor: district ? "white" : "#f5f5f5" }}
-            disabled={!district}
+            disabled={!district || disabled || submitting}
           >
             {talukas.map((t) => (
               <option key={t.gu} value={t.gu}>
@@ -176,7 +187,7 @@ export default function LocationDropdowns({
           value={villages.some((v) => v.gu === village) ? village : ""}
           onChange={handleVillageChange}
           style={{ ...selectStyle, backgroundColor: taluka ? "white" : "#f5f5f5" }}
-          disabled={!taluka}
+          disabled={!taluka || disabled || submitting}
         >
           <option value="">-- મોજે ગામ પસંદ કરો --</option>
           {villages.map((v) => (
@@ -196,6 +207,7 @@ export default function LocationDropdowns({
             placeholder="જો ગામ યાદીમાં ન હોય તો અહીં લખો..."
             value={customVillage || (!villages.some((v) => v.gu === village) ? village : "")}
             onChange={handleCustomVillageChange}
+            disabled={disabled || submitting}
             style={{
               flex: 1,
               border: "1px dashed #9bc",
@@ -214,22 +226,32 @@ export default function LocationDropdowns({
       <button
         type="button"
         onClick={handleProceed}
-        disabled={!village && !customVillage}
+        disabled={isBtnDisabled}
         style={{
           marginTop: 4,
-          background: !village && !customVillage ? "#9cb7d4" : "linear-gradient(135deg,#1a3a5c,#2768a0)",
+          background: isBtnDisabled
+            ? "#9cb7d4"
+            : "linear-gradient(135deg,#1a3a5c,#2768a0)",
           color: "white",
           border: "none",
           borderRadius: 10,
-          padding: "11px",
-          fontSize: 14.5,
+          padding: "12px",
+          fontSize: 15,
           fontWeight: 700,
-          cursor: !village && !customVillage ? "default" : "pointer",
+          cursor: isBtnDisabled ? "not-allowed" : "pointer",
           boxShadow: "0 2px 8px rgba(26,58,92,0.2)",
           transition: "background 0.2s",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
         }}
       >
-        ✓ સ્થળ કન્ફર્મ કરો & આગળ વધો (Confirm Location)
+        {submitting ? (
+          <span>⏳ કન્ફર્મ થઈ રહ્યું છે... (Saving Location...)</span>
+        ) : (
+          <span>✓ સ્થળ કન્ફર્મ કરો & આગળ વધો (Confirm Location)</span>
+        )}
       </button>
     </div>
   );
