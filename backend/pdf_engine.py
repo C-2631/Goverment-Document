@@ -202,6 +202,14 @@ def generate_pdf(session_id: str, data: dict) -> str:
     can.rect(150, 130, 320, 20, fill=1, stroke=0)
     can.setFillColorRGB(0, 0, 0)
 
+    # Change 3: Render 'પ્રતિશ્રી,' with perfect Indic conjunct shaping
+    pratishri_img = os.path.join(BASE_DIR, "static", "pratishri_perfect.png")
+    if os.path.exists(pratishri_img):
+        can.setFillColorRGB(1, 1, 1)
+        can.rect(40, 715, 60, 20, fill=1, stroke=0)
+        can.setFillColorRGB(0, 0, 0)
+        can.drawImage(pratishri_img, 42, 718, width=44, height=14, mask='auto')
+
     # Change 1: Do NOT draw static blue signature placeholder.
     # Only draw real signature if user explicitly provided a custom signature image.
     user_sig_path = data.get("signature_path")
