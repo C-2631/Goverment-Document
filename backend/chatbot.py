@@ -1264,11 +1264,16 @@ def process_chat_message(session_id: str, user_message: str) -> str:
             update_form_data(session_id, {current_field: "-"})
             confirm_prefix = "⏭️ સ્કીપ કરેલ છે (Skipped)."
         else:
-            if current_field == "date" and msg.lower() in ["today", "આજે", "આજની"]:
+            if current_field == "date" and any(k in msg.lower() for k in ["today", "આજે", "આજની"]):
                 today_str = datetime.date.today().strftime("%d-%m-%Y")
                 normalized_val = _to_gujarati_digits(today_str)
                 update_form_data(session_id, {current_field: normalized_val})
                 confirm_prefix = f"✓ આજની તારીખ (Today): {normalized_val}"
+            elif current_field in ["date", "measurement_date"] and re.match(r"^\d{4}-\d{2}-\d{2}$", msg.strip()):
+                y, m, d = msg.strip().split("-")
+                normalized_val = _to_gujarati_digits(f"{d}-{m}-{y}")
+                update_form_data(session_id, {current_field: normalized_val})
+                confirm_prefix = f"✓ તારીખ: {normalized_val}"
             else:
                 normalized_val = normalize_value_for_form(msg)
                 update_form_data(session_id, {current_field: normalized_val})

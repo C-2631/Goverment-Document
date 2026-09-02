@@ -31,6 +31,11 @@ export default function IndicInput({
 
   useEffect(() => {
     setRawInput(value || "");
+    if (!value) {
+      clearTimeout(debounceRef.current);
+      setSuggestions([]);
+      setShowDrop(false);
+    }
   }, [value]);
 
   // Close dropdown on outside click
@@ -92,6 +97,8 @@ export default function IndicInput({
         setSuggestions([]);
         setShowDrop(false);
       }
+      setSuggestions([]);
+      setShowDrop(false);
       if (onSubmit) {
         onSubmit(finalVal);
       }
@@ -156,7 +163,7 @@ export default function IndicInput({
       </div>
 
       {/* Suggestions dropdown */}
-      {showDrop && suggestions.length > 0 && (
+      {showDrop && !disabled && rawInput.trim().length > 0 && suggestions.length > 0 && (
         <div
           style={{
             position: "absolute",

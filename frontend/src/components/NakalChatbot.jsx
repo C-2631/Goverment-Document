@@ -303,8 +303,12 @@ ${data.initial_question || ""}`,
         ];
       case "copy_quantity":
         return ["૧", "૨", "૩", "૫"];
-      case "date":
-        return ["today"];
+      case "date": {
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const todayStr = `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+        return ["આજની તારીખ (Today)", todayStr];
+      }
       default:
         return [];
     }
@@ -580,6 +584,72 @@ ${data.initial_question || ""}`,
                     {chipText}
                   </button>
                 ))}
+              </div>
+            )}
+
+            {/* Dedicated Date Input Section for Date Question */}
+            {currentField === "date" && !isLocationStep && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  padding: "10px 14px",
+                  background: "linear-gradient(135deg, #f0f7ff, #e4effa)",
+                  borderRadius: 12,
+                  border: "1.5px solid #b8daf2",
+                  marginBottom: 10,
+                  boxShadow: "0 2px 8px rgba(26,58,92,0.08)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#1a3a5c" }}>
+                    📅 તારીખ પસંદ કરો (Select Date):
+                  </span>
+                  <input
+                    type="date"
+                    disabled={loading}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        const [y, m, d] = e.target.value.split("-");
+                        handleSend(`${d}-${m}-${y}`);
+                      }
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 8,
+                      border: "1.5px solid #2768a0",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: "#1a3a5c",
+                      background: "white",
+                      outline: "none",
+                      cursor: "pointer",
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSend("today")}
+                  disabled={loading}
+                  style={{
+                    background: "linear-gradient(135deg, #1a3a5c, #2768a0)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 8,
+                    padding: "7px 14px",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    boxShadow: "0 2px 6px rgba(26,58,92,0.2)",
+                  }}
+                >
+                  ✓ આજની તારીખ (Today)
+                </button>
               </div>
             )}
 

@@ -66,14 +66,14 @@ COORDINATES = {
     "subject_jillo": (150, 602, "NotoSansGujarati", 9),
     "subject_survey_no": (305, 602, "NotoSansGujarati", 9),
 
-    # Body text fields
-    "body_name": (230, 532, "NotoSansGujarati", 10),
+    # Body text fields (calibrated to sit directly on the dotted lines)
+    "body_name": (220, 530, "NotoSansGujarati", 10),
     "body_moje": (220, 510, "NotoSansGujarati", 9),
-    "body_taluko": (390, 510, "NotoSansGujarati", 9),
-    "body_jillo": (95, 488, "NotoSansGujarati", 9),
-    "body_survey_no": (285, 488, "NotoSansGujarati", 9),
-    "copy_details": (170, 466, "NotoSansGujarati", 9),
-    "copy_quantity": (320, 466, "NotoSansGujarati", 10),
+    "body_taluko": (405, 510, "NotoSansGujarati", 9),
+    "body_jillo": (110, 490, "NotoSansGujarati", 9),
+    "body_survey_no": (345, 490, "NotoSansGujarati", 9),
+    "copy_details": (150, 470, "NotoSansGujarati", 9),
+    "copy_quantity": (360, 470, "NotoSansGujarati", 10),
 
     # Bottom verification fields
     "mtr_no": (120, 317, "NotoSansGujarati", 10),
@@ -194,9 +194,12 @@ def generate_pdf(session_id: str, data: dict) -> str:
             can.setFont(font_name, size)
             can.drawString(x, y, val_str)
 
-    # Change 1: White out any legacy stamp placeholder area for clean rendering
+    # Change 1: White out legacy stamp area cleanly without touching 'પ્રતિશ્રી,' (starts at y=738)
     can.setFillColorRGB(1, 1, 1)
-    can.rect(30, 725, 140, 80, fill=1, stroke=0)
+    can.rect(30, 738, 140, 67, fill=1, stroke=0)
+
+    # Change 2: Remove bottom footer "Printed By : SHANKHAL - 99042 27516 - 94290 76906"
+    can.rect(150, 130, 320, 20, fill=1, stroke=0)
     can.setFillColorRGB(0, 0, 0)
 
     # Change 1: Do NOT draw static blue signature placeholder.
