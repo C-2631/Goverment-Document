@@ -601,7 +601,7 @@ ${data.initial_question || ""}`,
                   <IndicInput
                     value={input}
                     onChange={(val) => setInput(val)}
-                    onSubmit={() => handleSend()}
+                    onSubmit={(val) => handleSend(val)}
                     disabled={loading || !apiKey}
                     placeholder="Type in English or ગુજરાતી... (e.g. Land Record Inspector)"
                   />

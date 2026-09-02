@@ -84,12 +84,16 @@ export default function IndicInput({
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      // If suggestions are visible and user hits enter, pick first suggestion
+      let finalVal = rawInput;
       if (showDrop && suggestions.length > 0) {
-        handleSelect(suggestions[0]);
+        finalVal = suggestions[0];
+        setRawInput(suggestions[0]);
+        onChange(suggestions[0]);
+        setSuggestions([]);
+        setShowDrop(false);
       }
       if (onSubmit) {
-        onSubmit();
+        onSubmit(finalVal);
       }
     }
   };

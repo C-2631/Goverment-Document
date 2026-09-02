@@ -19,7 +19,7 @@ export default function LocationDropdowns({
   submitting: externalSubmitting,
 }) {
   const [district, setDistrict] = useState(initialValues.jillo || DEFAULT_DIST);
-  const [taluka, setTaluka] = useState(initialValues.taluko || "રાજકોટ");
+  const [taluko, setTaluko] = useState(initialValues.taluko || "રાજકોટ");
   const [village, setVillage] = useState(initialValues.moje || "");
   const [customVillage, setCustomVillage] = useState("");
   const [internalSubmitting, setInternalSubmitting] = useState(false);
@@ -27,12 +27,12 @@ export default function LocationDropdowns({
   const submitting = externalSubmitting !== undefined ? externalSubmitting : internalSubmitting;
 
   const talukas = getTalukas(district);
-  const villages = getVillages(district, taluka);
+  const villages = getVillages(district, taluko);
 
   // Sync initial values only when primitive strings change
   useEffect(() => {
     if (initialValues.jillo) setDistrict(initialValues.jillo);
-    if (initialValues.taluko) setTaluka(initialValues.taluko);
+    if (initialValues.taluko) setTaluko(initialValues.taluko);
     if (initialValues.moje) setVillage(initialValues.moje);
   }, [initialValues.jillo, initialValues.taluko, initialValues.moje]);
 
@@ -42,7 +42,7 @@ export default function LocationDropdowns({
     setDistrict(d);
     const newTalukas = getTalukas(d);
     const firstTaluka = newTalukas.length > 0 ? newTalukas[0].gu : "";
-    setTaluka(firstTaluka);
+    setTaluko(firstTaluka);
     setVillage("");
     setCustomVillage("");
     if (onChange) {
@@ -53,7 +53,7 @@ export default function LocationDropdowns({
   // When taluka changes ➔ reset village
   const handleTalukaChange = (e) => {
     const t = e.target.value;
-    setTaluka(t);
+    setTaluko(t);
     setVillage("");
     setCustomVillage("");
     if (onChange) {
@@ -83,7 +83,7 @@ export default function LocationDropdowns({
 
   const handleProceed = () => {
     const finalVillage = (customVillage || village || "").trim();
-    if (!district || !taluka || !finalVillage) {
+    if (!district || !taluko || !finalVillage) {
       alert("મહેરબાની કરીને જિલ્લો, તાલુકો અને મોજે ગામ પસંદ કરો / લખો.");
       return;
     }
@@ -172,7 +172,7 @@ export default function LocationDropdowns({
         <div>
           <label style={labelStyle}>૨. તાલુકો (Taluka):</label>
           <select
-            value={taluka}
+            value={taluko}
             onChange={handleTalukaChange}
             style={{ ...selectStyle, backgroundColor: district ? "white" : "#f5f5f5" }}
             disabled={!district || disabled || submitting}
@@ -192,8 +192,8 @@ export default function LocationDropdowns({
         <select
           value={villages.some((v) => v.gu === village) ? village : ""}
           onChange={handleVillageChange}
-          style={{ ...selectStyle, backgroundColor: taluka ? "white" : "#f5f5f5" }}
-          disabled={!taluka || disabled || submitting}
+          style={{ ...selectStyle, backgroundColor: taluko ? "white" : "#f5f5f5" }}
+          disabled={!taluko || disabled || submitting}
         >
           <option value="">-- મોજે ગામ પસંદ કરો --</option>
           {villages.map((v) => (
